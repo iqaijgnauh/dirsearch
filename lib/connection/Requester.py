@@ -28,7 +28,50 @@ import urllib.request
 import thirdparty.requests as requests
 from .RequestException import *
 from .Response import *
+from lib.utils.FileUtils import FileUtils
+from difflib import SequenceMatcher
 
+class URLType(object):
+    normal_url = 'normal_url'       # http://hostname/abc/test.php
+    directory_url = 'directory_url' # http://hostname/abc/
+    restful_url = 'restful_url'     # http://hostname/abc/test
+
+class Dict4Scan(object):
+    directory = 'dict/directory.txt'
+    logic = 'dict/logic.txt'
+    static_file_with_suffix = 'dict/static_file_with_suffix.txt'
+    static_file_without_suffix = 'dict/static_file_without_suffix.txt'
+
+    fingerprint = {
+        'action': 'dict/fingerprint_action.txt',
+        'asp': 'dict/fingerprint_asp.txt',
+        'aspx': 'dict/fingerprint_aspx.txt',
+        'cgi': 'dict/fingerprint_cgi.txt',
+        'do': 'dict/fingerprint_do.txt',
+        'jsp': 'dict/fingerprint_jsp.txt',
+        'php': 'dict/fingerprint_php.txt',
+        'pl': 'dict/fingerprint_pl.txt',
+        'py': 'dict/fingerprint_py.txt',
+        'rb': 'dict/fingerprint_rb.txt'
+    }
+
+class Dict4URLType(object):
+    normal_url = [
+        Dict4Scan.directory,
+        Dict4Scan.logic,
+        Dict4Scan.static_file_with_suffix
+    ]
+    directory_url = [
+        Dict4Scan.directory,
+        Dict4Scan.logic,
+        Dict4Scan.static_file_with_suffix,
+        Dict4Scan.static_file_without_suffix
+    ]
+    restful_url = [
+        Dict4Scan.directory,
+        Dict4Scan.logic,
+        Dict4Scan.static_file_without_suffix
+    ]
 
 class Requester(object):
     headers = {
@@ -40,18 +83,43 @@ class Requester(object):
         'Cache-Control': 'max-age=0',
     }
 
-    def __init__(self, url, cookie=None, useragent=None,
+    def __init__(self, url, script_path, cookie=None, useragent=None,
                  maxPool=1, maxRetries=5, delay=0, timeout=30,
                  ip=None, proxy=None, redirect=False, requestByHostname=False, httpmethod="get"):
 
         self.httpmethod = httpmethod
+        self.script_path = script_path
 
         # if no backslash, append one
-        if not url.endswith('/'):
+        # if not url.endswith('/'):
+        #     url = url + '/'
+        # http://hostname.local add slash
+        if urllib.parse.urlparse(url).path == '':
             url = url + '/'
 
         parsed = urllib.parse.urlparse(url)
         self.basePath = parsed.path
+
+        url_type, suffix, directory_name, filename, base_path = self.getURLTypeAndSuffix(self.basePath)
+        self.url_type = url_type
+        self.extension = suffix
+        self.directory = directory_name
+        self.filename = filename
+        if base_path:
+            self.base_path = base_path
+        else:
+            self.base_path = '/'
+        if self.extension:
+            self.site_fingerprint = set([self.extension])
+        else:
+            self.site_fingerprint = set([])
+
+        if self.url_type == URLType.normal_url:
+            self.scan_dict = Dict4URLType.normal_url
+        elif self.url_type == URLType.directory_url:
+            self.scan_dict = Dict4URLType.directory_url
+        elif self.url_type == URLType.restful_url:
+            self.scan_dict = Dict4URLType.restful_url
 
         # if not protocol specified, set http by default
         if parsed.scheme != 'http' and parsed.scheme != 'https':
@@ -100,6 +168,37 @@ class Requester(object):
         self.requestByHostname = requestByHostname
         self.session = requests.Session()
 
+    def getURLTypeAndSuffix(self, path):
+        suffix = None
+        directory_name, _file = path.rsplit('/', 2)[-2:]
+        if '.' in _file:
+            filename, suffix = _file.rsplit('.', 1)
+        else:
+            filename = _file
+
+        if filename and suffix:
+            _ = ''.join(path.rsplit('.{}'.format(suffix), 1))
+            _ = ''.join(_.rsplit(filename, 1))
+            base_path = ''.join(_.rsplit('{}/'.format(directory_name), 1))
+            return URLType.normal_url, suffix, directory_name, filename, base_path
+        elif filename:
+            _ = ''.join(path.rsplit(filename, 1))
+            base_path = ''.join(_.rsplit('{}/'.format(directory_name), 1))
+            return URLType.restful_url, '', directory_name, filename, base_path
+        else:
+            base_path = ''.join(path.rsplit('{}/'.format(directory_name), 1))
+            return URLType.directory_url, '', directory_name, '', base_path
+
+    @property
+    def scan_list(self):
+        scan_list = []
+        scan_list.extend([FileUtils.buildPath(self.script_path, "", _) for _ in self.scan_dict])
+        for _fp in list(self.site_fingerprint):
+            _ = Dict4Scan.fingerprint.get(_fp)
+            if _:
+                scan_list.append(FileUtils.buildPath(self.script_path, "", _))
+        return scan_list
+
     def setHeader(self, header, content):
         self.headers[header] = content
 
@@ -109,10 +208,21 @@ class Requester(object):
     def unsetRandomAgents(self):
         self.randomAgents = None
 
-    def request(self, path):
+    def waf_detect(self, site_index_response, dictionary):
+        waf_exist = False
+        waf_path_str = "{}?testparam=1234 AND 1=1 UNION ALL SELECT 1,NULL,'<script>alert(\"XSS\")</script>',table_name FROM information_schema.tables WHERE 2>1--/**/; EXEC xp_cmdshell('cat ../../../etc/passwd')#".format(
+            self.basePath)
+        waf_path = dictionary.quote(waf_path_str)
+        waf_response = self.request(waf_path, use_base_path=False)
+        if SequenceMatcher(None, site_index_response, waf_response.body).quick_ratio() < 0.6:
+            waf_exist = True
+        return waf_exist, waf_response
+
+    def request(self, path, use_base_path=True, allow_redirect=False, fingerprint=False):
         i = 0
         proxy = None
         result = None
+        self.redirect = allow_redirect
 
         while i <= self.maxRetries:
 
@@ -120,22 +230,27 @@ class Requester(object):
                 if self.proxy is not None:
                     proxy = {"https": self.proxy, "http": self.proxy}
 
+                # 请求ip，并将headers的host字段设置为netloc即可
                 if self.requestByHostname:
                     url = "{0}://{1}:{2}".format(self.protocol, self.host, self.port)
 
                 else:
                     url = "{0}://{1}:{2}".format(self.protocol, self.ip, self.port)
 
-                url = urllib.parse.urljoin(url, self.basePath)
 
-                # Joining with concatenation because a urljoin bug with "::"
-                if not url.endswith('/'):
-                    url += "/"
+                if use_base_path:
+                    url = urllib.parse.urljoin(url, self.basePath)
 
-                if path.startswith('/'):
-                    path = path[1:]
+                    # Joining with concatenation because a urljoin bug with "::"
+                    if not url.endswith('/'):
+                        url += "/"
+
+                    if path.startswith('/'):
+                        path = path[1:]
 
                 url += path
+
+
 
                 headers = dict(self.headers)
                 if self.randomAgents is not None:
@@ -178,7 +293,10 @@ class Requester(object):
                         timeout=self.timeout
                     )
 
-                result = Response(response.status_code, response.reason, response.headers, response.content)
+                result = Response(response.status_code, response.reason, response.headers, response.content, )
+                if fingerprint:
+                    # TODO: ident fingerprints from response headers
+                    self.site_fingerprint.update(result.get_suffixes(origin=self.host))
                 time.sleep(self.delay)
                 del headers
                 break

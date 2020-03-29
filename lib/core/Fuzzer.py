@@ -21,10 +21,12 @@ import threading
 from lib.connection.RequestException import RequestException
 from .Path import *
 from .Scanner import *
-
+from difflib import SequenceMatcher
+import random
+from lib.utils import RandomUtils
 
 class Fuzzer(object):
-    def __init__(self, requester, dictionary, testFailPath=None, threads=1, matchCallbacks=[], notFoundCallbacks=[],
+    def __init__(self, requester, dictionary, waf_exist, waf_response, testFailPath=None, threads=1, matchCallbacks=[], notFoundCallbacks=[],
                  errorCallbacks=[]):
 
         self.requester = requester
@@ -41,6 +43,8 @@ class Fuzzer(object):
         self.errorCallbacks = errorCallbacks
         self.matches = []
         self.errors = []
+        self.waf_exist = waf_exist
+        self.waf_response = waf_response
 
     def wait(self, timeout=None):
         for thread in self.threads:
@@ -52,6 +56,7 @@ class Fuzzer(object):
         return True
 
     def setupScanners(self):
+        '''404 页面，网站页面内容动态性探测'''
         if len(self.scanners) != 0:
             self.scanners = {}
 
@@ -83,6 +88,7 @@ class Fuzzer(object):
 
     def start(self):
         # Setting up testers
+        # 404 页面，302跳转location字段动态性探测
         self.setupScanners()
         # Setting up threads
         self.setupThreads()
@@ -114,11 +120,91 @@ class Fuzzer(object):
         self.play()
 
     def scan(self, path):
-        response = self.requester.request(path)
+        '''多线程发包逻辑'''
+        response = self.requester.request(path, use_base_path=False)
         result = None
+        if not self.getScannerFor(path).scan(path, response):
+            return result, response
+        # WAF
+        if self.waf_exist and SequenceMatcher(None, response.body, self.waf_response.body).quick_ratio() > 0.7:
+            return result, response
+
+        # special page detect
+        # filename and extension with two request, filename(no ext) and dir with one request
+        special_path = self.get_special_path(path)
+        for _ in special_path:
+            _special_path = self.dictionary.quote(_)
+            special_response = self.requester.request(_special_path, use_base_path=False)
+            if SequenceMatcher(None, response.body, special_response.body).quick_ratio() > 0.7:
+                return result, response
+
+        ## default logic
         if self.getScannerFor(path).scan(path, response):
+            # 文件存在性判断逻辑
             result = (None if response.status == 404 else response.status)
         return result, response
+
+    def get_special_path(self, path):
+        special_path = []
+        if path.endswith('/'):
+            _origin_path, _dir = path[:-1].rsplit('/', 1)
+        else:
+            _origin_path, _last_element = path.rsplit('/', 1)
+
+        if path.endswith('/'):
+            # unzip exception
+            _origin_path, _dir = path[:-1].rsplit('/', 1)
+            special_dir = self.get_special_str(_dir)
+            _path = '{}/{}/'.format(_origin_path, special_dir)
+            if not _path.startswith('/'):
+                _path = '/' + _path
+            special_path.append(_path)
+        elif '.' in _last_element:
+            _origin_path, _filename_ext = path.rsplit('/', 1)
+            _filename, _ext = _filename_ext.rsplit('.', 1)
+            # special filename
+            if not _filename:
+                _filename = RandomUtils.randString(n=8)
+            special_filename = self.get_special_str(_filename)
+            _path = '{}/{}.{}'.format(_origin_path, special_filename, _ext)
+            if not _path.startswith('/'):
+                _path = '/' + _path
+            special_path.append(_path)
+            # special extension
+            if not _ext:
+                _ext = RandomUtils.randString(n=8)
+            special_extension = self.get_special_str(_ext)
+            _path = '{}/{}.{}'.format(_origin_path, _filename, special_extension)
+            if not _path.startswith('/'):
+                _path = '/' + _path
+            special_path.append(_path)
+        else:
+            _origin_path, _filename = path.rsplit('/', 1)
+            special_filename = self.get_special_str(_filename)
+            _path = '{}/{}'.format(_origin_path, special_filename)
+            if not _path.startswith('/'):
+                _path = '/' + _path
+            special_path.append(_path)
+        return special_path
+
+    def get_special_str(self, str):
+        str_list = list(str)
+        str_set_len = len(set(str_list))
+
+        for _ in range(100):
+            if str_set_len == 1 and len(str_list) == 1:
+                new_str = RandomUtils.randString(n=1, omit=str_list)
+            elif str_set_len == 1:
+                _ = RandomUtils.randString(n=len(str_list)-str_set_len)
+                new_str = '{}{}'.format(str_list[0], _)
+            else:
+                random.shuffle(str_list)
+                new_str = ''.join(str_list)
+            if new_str == str:
+                continue
+            return new_str
+        else:
+            raise Exception('Special Str: {}'.format(str))
 
     def isRunning(self):
         return self.running
@@ -134,11 +220,32 @@ class Fuzzer(object):
         self.runningThreadsCount -= 1
 
     def thread_proc(self):
+        '''多线程发包'''
         self.playEvent.wait()
         try:
-            path = next(self.dictionary)
+            source_dict, path = next(self.dictionary)
             while path is not None:
                 try:
+                    # if path is file, replace filename.ext, filename, directory
+                    # elif path is directory remove filename.ext, filename, both add and replace directory
+                    # dir replace
+                    if path.endswith('/') and source_dict == 'logic_dict':
+                        if self.requester.directory:
+                            path = '{}{}'.format(self.requester.base_path, path)
+                        else:
+                            source_dict, path = next(self.dictionary)
+                            continue
+                    elif source_dict == 'logic_dict':
+                        if self.requester.filename:
+                            path = '{}{}/{}'.format(self.requester.base_path, self.requester.directory, path)
+                        else:
+                            path = '{}{}'.format(self.requester.base_path, path)
+                    # dir add, file add
+                    else:
+                        if self.requester.directory:
+                            path = '{}{}/{}'.format(self.requester.base_path, self.requester.directory, path)
+                        else:
+                            path = '{}{}'.format(self.requester.base_path, path)
                     status, response = self.scan(path)
                     result = Path(path=path, status=status, response=response)
 
@@ -164,7 +271,7 @@ class Fuzzer(object):
                         self.pausedSemaphore.release()
                         self.playEvent.wait()
 
-                    path = next(self.dictionary)  # Raises StopIteration when finishes
+                    source_dict, path = next(self.dictionary)  # Raises StopIteration when finishes
 
                     if not self.running:
                         break

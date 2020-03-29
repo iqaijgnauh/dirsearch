@@ -1,0 +1,88 @@
+[Filename] (copy).[Extension]
+[Filename] (another copy).[Extension]
+[Filename] (3rd copy).[Extension]
+[Filename] (third copy).[Extension]
+[Filename] (4th copy).[Extension]
+[Filename].[Extension]~
+Copy of [Filename].[Extension]
+Copy (2) of [Filename].[Extension]
+Copy of [Filename].[Extension]
+[Filename] - Copy.[Extension]
+[Filename] - Copy (2).[Extension]
+[Filename] - Copy.[Extension]
+[Directory Name] (copy)/
+[Directory Name] - Copy/
+Copy of [Directory Name]/
+[Filename].[Extension].7z
+[Filename].[Extension].ar
+[Filename].[Extension].bz2
+[Filename].[Extension].cbz
+[Filename].[Extension].exe
+[Filename].[Extension].gz
+[Filename].[Extension].jar
+[Filename].[Extension].lzma
+[Filename].[Extension].tar
+[Filename].[Extension].tar.7z
+[Filename].[Extension].tar.bz2
+[Filename].[Extension].tar.gz
+[Filename].[Extension].tar.lzma
+[Filename].[Extension].tar.xz
+[Filename].[Extension].xz
+[Filename].[Extension].zip
+[Filename].zip
+[Filename].rar
+[Filename].wim
+[Filename].7z
+[Filename].tar
+[Directory Name].7z
+[Directory Name].zip
+[Directory Name].rar
+[Directory Name].wim
+[Directory Name].war
+[Directory Name].ear
+[Directory Name].jar
+[Directory Name].tar
+[Directory Name].ar
+[Directory Name].cbz
+[Directory Name].exe
+[Directory Name].tar.bz2
+[Directory Name].tar.gz
+[Directory Name].tar.lzma
+[Directory Name].tar.7z
+[Directory Name].tar.xz
+[Filename].old
+[Filename].bak
+[Filename].bac
+[Filename].backup
+[Filename].1
+[Filename].a
+[Filename].inc
+[Filename].include
+[Filename].[Extension].old
+[Filename].[Extension].bak
+[Filename].[Extension].bac
+[Filename].[Extension].backup
+[Filename].[Extension].1
+[Filename].[Extension].a
+old_[Filename].[Extension]
+[Filename].[Extension]_old
+bak_[Filename].[Extension]
+[Filename]_bak.[Extension]
+backup_[Filename].[Extension]
+[Filename]_backup.[Extension]
+[Filename].[Extension]_old
+[Filename].[Extension]old
+[Filename].[Extension]_bak
+[Filename].[Extension]bak
+[Filename].[Extension]_backup
+[Filename].[Extension]inc
+[Filename]1.[Extension]
+[Filename]2.[Extension]
+[Filename].[Extension]1
+[Filename].[Extension]2
+[Filename].jspf
+[Filename].jspx
+[Filename].jspa
+.[Filename]
+.[Filename].[Extension]
+.[Directory Name]/

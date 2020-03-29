@@ -28,8 +28,11 @@ from thirdparty.oset import *
 
 class Dictionary(object):
 
-    def __init__(self, paths, extensions, lowercase=False, forcedExtensions=False):
+    def __init__(self, paths, directory, filename, extension, extensions=[], lowercase=False, forcedExtensions=False):
         self.entries = []
+        self.directory = directory
+        self.filename = filename
+        self.extension = extension
         self.currentIndex = 0
         self.condition = threading.Lock()
         self._extensions = extensions
@@ -86,36 +89,53 @@ class Dictionary(object):
                 if line.lstrip().startswith("#"):
                     continue
 
-                # Classic dirsearch wordlist processing (with %EXT% keyword)
-                if '%EXT%' in line or '%ext%' in line:
-                    for extension in self._extensions:
-                        if '%EXT%' in line:
-                            newline = line.replace('%EXT%', extension)
+                # # Classic dirsearch wordlist processing (with %EXT% keyword)
+                # if '%EXT%' in line or '%ext%' in line:
+                #     for extension in self._extensions:
+                #         if '%EXT%' in line:
+                #             newline = line.replace('%EXT%', extension)
+                #
+                #         if '%ext%' in line:
+                #             newline = line.replace('%ext%', extension)
+                #
+                #         quote = self.quote(newline)
+                #         result.append(quote)
+                #
+                # # If forced extensions is used and the path is not a directory ... (terminated by /)
+                # # process line like a forced extension.
+                # elif self._forcedExtensions and not line.rstrip().endswith("/"):
+                #     quoted = self.quote(line)
+                #
+                #     for extension in self._extensions:
+                #         # Why? check https://github.com/maurosoria/dirsearch/issues/70
+                #         if extension.strip() == '':
+                #             result.append(quoted)
+                #         else:
+                #             result.append(quoted + '.' + extension)
+                #
+                #     if quoted.strip() not in ['']:
+                #         result.append(quoted + "/")
+                #
+                # # Append line unmodified.
+                # else:
+                #     result.append(self.quote(line))
 
-                        if '%ext%' in line:
-                            newline = line.replace('%ext%', extension)
+                filename_token = '[Filename]'
+                extension_token = '[Extension]'
+                directory_token = '[Directory Name]'
 
-                        quote = self.quote(newline)
-                        result.append(quote)
-
-                # If forced extensions is used and the path is not a directory ... (terminated by /)
-                # process line like a forced extension.
-                elif self._forcedExtensions and not line.rstrip().endswith("/"):
-                    quoted = self.quote(line)
-
-                    for extension in self._extensions:
-                        # Why? check https://github.com/maurosoria/dirsearch/issues/70
-                        if extension.strip() == '':
-                            result.append(quoted)
-                        else:
-                            result.append(quoted + '.' + extension)
-
-                    if quoted.strip() not in ['']:
-                        result.append(quoted + "/")
-
-                # Append line unmodified.
-                else:
-                    result.append(self.quote(line))
+                if filename_token in line and self.filename and extension_token in line and self.extension:
+                    newline = line.replace(filename_token, self.filename)
+                    newline = newline.replace(extension_token, self.extension)
+                    result.append(('logic_dict', self.quote(newline)))
+                elif filename_token in line and self.filename:
+                    newline = line.replace(filename_token, self.filename)
+                    result.append(('logic_dict', self.quote(newline)))
+                elif directory_token in line and self.directory:
+                    newline = line.replace(directory_token, self.directory)
+                    result.append(('logic_dict', self.quote(newline)))
+                elif filename_token not in line and extension_token not in line and directory_token not in line:
+                    result.append(('string_dict', self.quote(line)))
 
         # oset library provides inserted ordered and unique collection.
         if self.lowercase:

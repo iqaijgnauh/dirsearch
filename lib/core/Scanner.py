@@ -45,6 +45,7 @@ class Scanner(object):
         self.setup()
 
     def setup(self):
+        '''404页面发包'''
         firstPath = self.testPath + self.suffix
         firstResponse = self.requester.request(firstPath)
         self.invalidStatus = firstResponse.status
@@ -57,6 +58,7 @@ class Scanner(object):
         secondPath = RandomUtils.randString(omit=self.testPath) + self.suffix
         secondResponse = self.requester.request(secondPath)
 
+        # 404页面30X跳转探测
         if firstResponse.status in self.redirectStatusCodes and firstResponse.redirect and secondResponse.redirect:
             self.redirectRegExp = self.generateRedirectRegExp(firstResponse.redirect, secondResponse.redirect)
 
@@ -73,6 +75,7 @@ class Scanner(object):
             self.ratio = baseRatio
 
     def generateRedirectRegExp(self, firstLocation, secondLocation):
+        '''404页面30X跳转正则表达式形成'''
         if firstLocation is None or secondLocation is None:
             return None
 

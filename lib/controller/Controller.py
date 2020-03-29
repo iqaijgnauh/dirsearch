@@ -104,9 +104,9 @@ class Controller(object):
         self.directories = Queue()
         self.excludeSubdirs = (arguments.excludeSubdirs if arguments.excludeSubdirs is not None else [])
         self.output.header(program_banner)
-        self.dictionary = Dictionary(self.arguments.wordlist, self.arguments.extensions,
-                                     self.arguments.lowercase, self.arguments.forceExtensions)
-        self.printConfig()
+        # self.dictionary = Dictionary(self.arguments.wordlist, self.arguments.extensions,
+        #                              self.arguments.lowercase, self.arguments.forceExtensions)
+        # self.printConfig()
         self.errorLog = None
         self.errorLogPath = None
         self.errorLogLock = Lock()
@@ -132,7 +132,9 @@ class Controller(object):
                     self.output.target(self.currentUrl)
 
                     try:
-                        self.requester = Requester(url, cookie=self.arguments.cookie,
+                        # DNS A Record query
+                        self.requester = Requester(url, script_path=self.script_path,
+                                                   cookie=self.arguments.cookie,
                                                    useragent=self.arguments.useragent,
                                                    maxPool=self.arguments.threadsCount,
                                                    maxRetries=self.arguments.maxRetries, delay=self.arguments.delay,
@@ -141,7 +143,13 @@ class Controller(object):
                                                    redirect=self.arguments.redirect,
                                                    requestByHostname=self.arguments.requestByHostname,
                                                    httpmethod=self.httpmethod)
-                        self.requester.request("/")
+                        # 网站连通性测试
+                        site_connection_test_resp = self.requester.request(self.requester.basePath, use_base_path=False, allow_redirect=True, fingerprint=True)
+                        self.dictionary = Dictionary(self.requester.scan_list, self.requester.directory,
+                                                     self.requester.filename, self.requester.extension)
+                        # Waf 探测
+                        waf_exist, waf_response = self.requester.waf_detect(site_connection_test_resp.body,
+                                                                            dictionary=self.dictionary)
 
                     except RequestException as e:
                         self.output.error(e.args[0]['message'])
@@ -169,7 +177,8 @@ class Controller(object):
                     notFoundCallbacks = [self.notFoundCallback]
                     errorCallbacks = [self.errorCallback, self.appendErrorLog]
 
-                    self.fuzzer = Fuzzer(self.requester, self.dictionary, testFailPath=self.arguments.testFailPath,
+                    self.fuzzer = Fuzzer(self.requester, self.dictionary, waf_exist, waf_response,
+                                         testFailPath=self.arguments.testFailPath,
                                          threads=self.arguments.threadsCount, matchCallbacks=matchCallbacks,
                                          notFoundCallbacks=notFoundCallbacks, errorCallbacks=errorCallbacks)
                     try:

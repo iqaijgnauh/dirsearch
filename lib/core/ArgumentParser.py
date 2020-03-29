@@ -58,12 +58,12 @@ class ArgumentParser(object):
         else:
             self.urlList = [options.url]
 
-        if not options.extensions and not options.defaultExtensions:
-            print('No extension specified. You must specify at least one extension or try using default extension list.')
-            exit(0)
-
-        if not options.extensions and options.defaultExtensions:
-            options.extensions = self.defaultExtensions
+        # if not options.extensions and not options.defaultExtensions:
+        #     print('No extension specified. You must specify at least one extension or try using default extension list.')
+        #     exit(0)
+        #
+        # if not options.extensions and options.defaultExtensions:
+        #     options.extensions = self.defaultExtensions
 
         # Enable to use multiple dictionaries at once
         for dictFile in options.wordlist.split(','):
@@ -101,7 +101,7 @@ class ArgumentParser(object):
         else:
             self.headers = {}
 
-        self.extensions = list(oset([extension.strip() for extension in options.extensions.split(',')]))
+        # self.extensions = list(oset([extension.strip() for extension in options.extensions.split(',')]))
         self.useragent = options.useragent
         self.useRandomAgents = options.useRandomAgents
         self.cookie = options.cookie

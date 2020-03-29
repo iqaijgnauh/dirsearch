@@ -57,8 +57,31 @@ class Response(object):
     @property
     def pretty(self):
         try:
-            from BeautifulSoup import BeautifulSoup
+            from bs4 import BeautifulSoup
         except ImportError:
             raise Exception('BeautifulSoup must be installed to get pretty HTML =(')
-        html = BeautifulSoup(self.body)
+        html = BeautifulSoup(self.body, 'html.parser')
         return html.prettify()
+
+    def get_suffixes(self, origin):
+        try:
+            from bs4 import BeautifulSoup
+            from urllib.parse import urlparse
+        except ImportError:
+            raise Exception('BeautifulSoup must be installed to get pretty HTML =(')
+        html = BeautifulSoup(self.body, 'html.parser')
+        # return html.prettify()
+        _suffix = []
+        for tag_a in html.find_all('a'):
+            link = tag_a.get('href') or '/'
+            if link.startswith('http'):
+                _ = urlparse(link)
+                # 不同源url不考虑后缀
+                if origin not in _.netloc:
+                    continue
+                link = _.path
+            last_element = link.split('/')[-1]
+            suffix = last_element.split('.')[-1]
+            if suffix:
+                _suffix.append(suffix)
+        return set(_suffix)

@@ -1,0 +1,5 @@
+admin.do
+admin/login.do
+patient/login.do
+patient/register.do
+physican/login.do

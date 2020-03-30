@@ -1,0 +1,20 @@
+[Directory Name] (copy)/
+[Directory Name] - Copy/
+Copy of [Directory Name]/
+[Directory Name].7z
+[Directory Name].zip
+[Directory Name].rar
+[Directory Name].wim
+[Directory Name].war
+[Directory Name].ear
+[Directory Name].jar
+[Directory Name].tar
+[Directory Name].ar
+[Directory Name].cbz
+[Directory Name].exe
+[Directory Name].tar.bz2
+[Directory Name].tar.gz
+[Directory Name].tar.lzma
+[Directory Name].tar.7z
+[Directory Name].tar.xz
+.[Directory Name]/

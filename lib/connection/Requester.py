@@ -31,16 +31,22 @@ from .Response import *
 from lib.utils.FileUtils import FileUtils
 from difflib import SequenceMatcher
 
+
+class DealMethod(object):
+    replace_dir = 'replace_dir'         # 替换 directory
+    extend_dir = 'extend_dir'           # 在 directory 后面添加
+
 class URLType(object):
-    normal_url = 'normal_url'       # http://hostname/abc/test.php
-    directory_url = 'directory_url' # http://hostname/abc/
-    restful_url = 'restful_url'     # http://hostname/abc/test
+    normal_file = 'normal_file'       # http://hostname/abc/test.php
+    normal_restful_dir = 'normal_restful_dir' # http://hostname/abc/
+    restful_file = 'restful_file'     # http://hostname/abc/test
 
 class Dict4Scan(object):
-    directory = 'dict/directory.txt'
-    logic = 'dict/logic.txt'
-    static_file_with_suffix = 'dict/static_file_with_suffix.txt'
-    static_file_without_suffix = 'dict/static_file_without_suffix.txt'
+    common_dir = 'dict/common_dir.txt'
+    common_file_with_suffix = 'dict/common_file_with_suffix.txt'
+    common_file_without_suffix = 'dict/common_file_without_suffix.txt'
+    logic_dir = 'dict/logic_dir.txt'
+    logic_file = 'dict/logic_file.txt'
 
     fingerprint = {
         'action': 'dict/fingerprint_action.txt',
@@ -56,21 +62,21 @@ class Dict4Scan(object):
     }
 
 class Dict4URLType(object):
-    normal_url = [
-        Dict4Scan.directory,
-        Dict4Scan.logic,
-        Dict4Scan.static_file_with_suffix
+    normal_file = [
+        Dict4Scan.common_dir,
+        Dict4Scan.common_file_with_suffix,
+        Dict4Scan.logic_dir,
+        Dict4Scan.logic_file
     ]
-    directory_url = [
-        Dict4Scan.directory,
-        Dict4Scan.logic,
-        Dict4Scan.static_file_with_suffix,
-        Dict4Scan.static_file_without_suffix
+    normal_restful_dir = [
+        Dict4Scan.common_dir,
+        Dict4Scan.common_file_with_suffix,
+        Dict4Scan.common_file_without_suffix,
+        Dict4Scan.logic_dir,
     ]
-    restful_url = [
-        Dict4Scan.directory,
-        Dict4Scan.logic,
-        Dict4Scan.static_file_without_suffix
+    restful_file = [
+        Dict4Scan.common_dir,
+        Dict4Scan.common_file_without_suffix
     ]
 
 class Requester(object):
@@ -114,12 +120,12 @@ class Requester(object):
         else:
             self.site_fingerprint = set([])
 
-        if self.url_type == URLType.normal_url:
-            self.scan_dict = Dict4URLType.normal_url
-        elif self.url_type == URLType.directory_url:
-            self.scan_dict = Dict4URLType.directory_url
-        elif self.url_type == URLType.restful_url:
-            self.scan_dict = Dict4URLType.restful_url
+        if self.url_type == URLType.normal_file:
+            self.scan_dict = Dict4URLType.normal_file
+        elif self.url_type == URLType.normal_restful_dir:
+            self.scan_dict = Dict4URLType.normal_restful_dir
+        elif self.url_type == URLType.restful_file:
+            self.scan_dict = Dict4URLType.restful_file
 
         # if not protocol specified, set http by default
         if parsed.scheme != 'http' and parsed.scheme != 'https':
@@ -180,14 +186,14 @@ class Requester(object):
             _ = ''.join(path.rsplit('.{}'.format(suffix), 1))
             _ = ''.join(_.rsplit(filename, 1))
             base_path = ''.join(_.rsplit('{}/'.format(directory_name), 1))
-            return URLType.normal_url, suffix, directory_name, filename, base_path
+            return URLType.normal_file, suffix, directory_name, filename, base_path
         elif filename:
             _ = ''.join(path.rsplit(filename, 1))
             base_path = ''.join(_.rsplit('{}/'.format(directory_name), 1))
-            return URLType.restful_url, '', directory_name, filename, base_path
+            return URLType.restful_file, '', directory_name, filename, base_path
         else:
             base_path = ''.join(path.rsplit('{}/'.format(directory_name), 1))
-            return URLType.directory_url, '', directory_name, '', base_path
+            return URLType.normal_restful_dir, '', directory_name, '', base_path
 
     @property
     def scan_list(self):
@@ -208,11 +214,11 @@ class Requester(object):
     def unsetRandomAgents(self):
         self.randomAgents = None
 
-    def waf_detect(self, site_index_response, dictionary):
+    def waf_detect(self, site_index_response, url_quote):
         waf_exist = False
         waf_path_str = "{}?testparam=1234 AND 1=1 UNION ALL SELECT 1,NULL,'<script>alert(\"XSS\")</script>',table_name FROM information_schema.tables WHERE 2>1--/**/; EXEC xp_cmdshell('cat ../../../etc/passwd')#".format(
             self.basePath)
-        waf_path = dictionary.quote(waf_path_str)
+        waf_path = url_quote(waf_path_str)
         waf_response = self.request(waf_path, use_base_path=False)
         if SequenceMatcher(None, site_index_response, waf_response.body).quick_ratio() < 0.6:
             waf_exist = True

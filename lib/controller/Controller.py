@@ -29,7 +29,8 @@ from queue import Queue
 from lib.connection import Requester, RequestException
 from lib.core import Dictionary, Fuzzer, ReportManager
 from lib.reports import JSONReport, PlainTextReport, SimpleReport
-from lib.utils import FileUtils
+from lib.utils import FileUtils, RandomUtils
+from lib.connection.Requester import URLType
 
 
 class SkipTargetInterrupt(Exception):
@@ -95,6 +96,7 @@ class Controller(object):
 
         self.reportsPath = FileUtils.buildPath(self.savePath, "logs")
         self.blacklists = self.getBlacklists()
+        self.blacklists = {}
         self.fuzzer = None
         self.excludeStatusCodes = self.arguments.excludeStatusCodes
         self.excludeTexts = self.arguments.excludeTexts
@@ -147,9 +149,20 @@ class Controller(object):
                         site_connection_test_resp = self.requester.request(self.requester.basePath, use_base_path=False, allow_redirect=True, fingerprint=True)
                         self.dictionary = Dictionary(self.requester.scan_list, self.requester.directory,
                                                      self.requester.filename, self.requester.extension)
+                        # 404 page
+                        if self.requester.url_type == URLType.normal_restful_dir:
+                            path_404 = '{}/{}/'.format(self.requester.basePath, RandomUtils.randString(8))
+                            path_404 = path_404.replace("//", "/")
+                        elif self.requester.url_type == URLType.restful_file:
+                            path_404 = self.requester.basePath.replace(self.requester.filename, RandomUtils.randString(len(self.requester.filename) or 8))
+                        elif self.requester.url_type == URLType.normal_file:
+                            path_404 = self.requester.basePath.replace(self.requester.filename, RandomUtils.randString(len(self.requester.filename) or 8))
+                        path_404_quote = self.dictionary.quote(path_404)
+                        response_404 = self.requester.request(path_404_quote, use_base_path=False, allow_redirect=False)
+
                         # Waf 探测
                         waf_exist, waf_response = self.requester.waf_detect(site_connection_test_resp.body,
-                                                                            dictionary=self.dictionary)
+                                                                            url_quote=self.dictionary.quote)
 
                     except RequestException as e:
                         self.output.error(e.args[0]['message'])
@@ -177,7 +190,7 @@ class Controller(object):
                     notFoundCallbacks = [self.notFoundCallback]
                     errorCallbacks = [self.errorCallback, self.appendErrorLog]
 
-                    self.fuzzer = Fuzzer(self.requester, self.dictionary, waf_exist, waf_response,
+                    self.fuzzer = Fuzzer(self.requester, self.dictionary, waf_exist, waf_response, response_404,
                                          testFailPath=self.arguments.testFailPath,
                                          threads=self.arguments.threadsCount, matchCallbacks=matchCallbacks,
                                          notFoundCallbacks=notFoundCallbacks, errorCallbacks=errorCallbacks)

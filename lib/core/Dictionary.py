@@ -24,6 +24,7 @@ import urllib.request
 
 from lib.utils.FileUtils import File
 from thirdparty.oset import *
+from lib.connection.Requester import Dict4Scan, DealMethod
 
 
 class Dictionary(object):
@@ -83,6 +84,11 @@ class Dictionary(object):
         result = []
         # Enable to use multiple dictionaries at once
         for dictFile in self.dictionaryFiles:
+            if Dict4Scan.logic_dir in dictFile.path:
+                dict_deal_method = DealMethod.replace_dir
+            else:
+                dict_deal_method = DealMethod.extend_dir
+
             for line in dictFile.getLines():
 
                 # Skip comments
@@ -127,15 +133,15 @@ class Dictionary(object):
                 if filename_token in line and self.filename and extension_token in line and self.extension:
                     newline = line.replace(filename_token, self.filename)
                     newline = newline.replace(extension_token, self.extension)
-                    result.append(('logic_dict', self.quote(newline)))
+                    result.append((dict_deal_method, self.quote(newline)))
                 elif filename_token in line and self.filename:
                     newline = line.replace(filename_token, self.filename)
-                    result.append(('logic_dict', self.quote(newline)))
+                    result.append((dict_deal_method, self.quote(newline)))
                 elif directory_token in line and self.directory:
                     newline = line.replace(directory_token, self.directory)
-                    result.append(('logic_dict', self.quote(newline)))
+                    result.append((dict_deal_method, self.quote(newline)))
                 elif filename_token not in line and extension_token not in line and directory_token not in line:
-                    result.append(('string_dict', self.quote(line)))
+                    result.append((dict_deal_method, self.quote(line)))
 
         # oset library provides inserted ordered and unique collection.
         if self.lowercase:

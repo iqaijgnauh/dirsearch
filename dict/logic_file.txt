@@ -10,9 +10,6 @@ Copy of [Filename].[Extension]
 [Filename] - Copy.[Extension]
 [Filename] - Copy (2).[Extension]
 [Filename] - Copy.[Extension]
-[Directory Name] (copy)/
-[Directory Name] - Copy/
-Copy of [Directory Name]/
 [Filename].[Extension].7z
 [Filename].[Extension].ar
 [Filename].[Extension].bz2
@@ -34,22 +31,6 @@ Copy of [Directory Name]/
 [Filename].wim
 [Filename].7z
 [Filename].tar
-[Directory Name].7z
-[Directory Name].zip
-[Directory Name].rar
-[Directory Name].wim
-[Directory Name].war
-[Directory Name].ear
-[Directory Name].jar
-[Directory Name].tar
-[Directory Name].ar
-[Directory Name].cbz
-[Directory Name].exe
-[Directory Name].tar.bz2
-[Directory Name].tar.gz
-[Directory Name].tar.lzma
-[Directory Name].tar.7z
-[Directory Name].tar.xz
 [Filename].old
 [Filename].bak
 [Filename].bac
@@ -85,4 +66,3 @@ backup_[Filename].[Extension]
 [Filename].jspa
 .[Filename]
 .[Filename].[Extension]
-.[Directory Name]/

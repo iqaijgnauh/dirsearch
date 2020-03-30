@@ -24,9 +24,10 @@ from .Scanner import *
 from difflib import SequenceMatcher
 import random
 from lib.utils import RandomUtils
+from lib.connection.Requester import DealMethod
 
 class Fuzzer(object):
-    def __init__(self, requester, dictionary, waf_exist, waf_response, testFailPath=None, threads=1, matchCallbacks=[], notFoundCallbacks=[],
+    def __init__(self, requester, dictionary, waf_exist, waf_response, response_404, testFailPath=None, threads=1, matchCallbacks=[], notFoundCallbacks=[],
                  errorCallbacks=[]):
 
         self.requester = requester
@@ -45,6 +46,7 @@ class Fuzzer(object):
         self.errors = []
         self.waf_exist = waf_exist
         self.waf_response = waf_response
+        self.response_404 = response_404
 
     def wait(self, timeout=None):
         for thread in self.threads:
@@ -71,6 +73,7 @@ class Fuzzer(object):
             self.threads = []
 
         for thread in range(self.threadsCount):
+            # thread_proc 为实际运行爆破函数
             newThread = threading.Thread(target=self.thread_proc)
             newThread.daemon = True
             self.threads.append(newThread)
@@ -123,10 +126,14 @@ class Fuzzer(object):
         '''多线程发包逻辑'''
         response = self.requester.request(path, use_base_path=False)
         result = None
-        if not self.getScannerFor(path).scan(path, response):
+        ratio_bound = 0.7
+        # 404页面对比
+        # if not self.getScannerFor(path).scan(path, response):
+        #     return result, response
+        if SequenceMatcher(None, response.body, self.response_404.body).quick_ratio() > ratio_bound:
             return result, response
         # WAF
-        if self.waf_exist and SequenceMatcher(None, response.body, self.waf_response.body).quick_ratio() > 0.7:
+        if self.waf_exist and SequenceMatcher(None, response.body, self.waf_response.body).quick_ratio() > ratio_bound:
             return result, response
 
         # special page detect
@@ -135,13 +142,13 @@ class Fuzzer(object):
         for _ in special_path:
             _special_path = self.dictionary.quote(_)
             special_response = self.requester.request(_special_path, use_base_path=False)
-            if SequenceMatcher(None, response.body, special_response.body).quick_ratio() > 0.7:
+            if SequenceMatcher(None, response.body, special_response.body).quick_ratio() > ratio_bound:
                 return result, response
 
         ## default logic
-        if self.getScannerFor(path).scan(path, response):
+        # if self.getScannerFor(path).scan(path, response):
             # 文件存在性判断逻辑
-            result = (None if response.status == 404 else response.status)
+        result = (None if response.status == 404 else response.status)
         return result, response
 
     def get_special_path(self, path):
@@ -223,23 +230,23 @@ class Fuzzer(object):
         '''多线程发包'''
         self.playEvent.wait()
         try:
-            source_dict, path = next(self.dictionary)
+            deal_method, path = next(self.dictionary)
             while path is not None:
                 try:
                     # if path is file, replace filename.ext, filename, directory
                     # elif path is directory remove filename.ext, filename, both add and replace directory
                     # dir replace
-                    if path.endswith('/') and source_dict == 'logic_dict':
+                    if path.endswith('/') and deal_method == DealMethod.replace_dir:
                         if self.requester.directory:
                             path = '{}{}'.format(self.requester.base_path, path)
                         else:
-                            source_dict, path = next(self.dictionary)
+                            deal_method, path = next(self.dictionary)
                             continue
-                    elif source_dict == 'logic_dict':
-                        if self.requester.filename:
-                            path = '{}{}/{}'.format(self.requester.base_path, self.requester.directory, path)
-                        else:
-                            path = '{}{}'.format(self.requester.base_path, path)
+                    # elif source_dict == 'logic_dict':
+                    #     if self.requester.filename:
+                    #         path = '{}{}/{}'.format(self.requester.base_path, self.requester.directory, path)
+                    #     else:
+                    #         path = '{}{}'.format(self.requester.base_path, path)
                     # dir add, file add
                     else:
                         if self.requester.directory:

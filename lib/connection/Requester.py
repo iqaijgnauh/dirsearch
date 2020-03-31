@@ -216,11 +216,12 @@ class Requester(object):
 
     def waf_detect(self, site_index_response, url_quote):
         waf_exist = False
+        waf_ratio = 0.6
         waf_path_str = "{}?testparam=1234 AND 1=1 UNION ALL SELECT 1,NULL,'<script>alert(\"XSS\")</script>',table_name FROM information_schema.tables WHERE 2>1--/**/; EXEC xp_cmdshell('cat ../../../etc/passwd')#".format(
             self.basePath)
         waf_path = url_quote(waf_path_str)
         waf_response = self.request(waf_path, use_base_path=False)
-        if SequenceMatcher(None, site_index_response, waf_response.body).quick_ratio() < 0.6:
+        if SequenceMatcher(None, site_index_response, waf_response.body).quick_ratio() < waf_ratio:
             waf_exist = True
         return waf_exist, waf_response
 

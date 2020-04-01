@@ -128,10 +128,9 @@ class Fuzzer(object):
         result = None
         ratio_bound = 0.7
 
-        ## default logic
-        # if self.getScannerFor(path).scan(path, response):
-            # 文件存在性判断逻辑
-        result = (None if response.status == 404 else response.status)
+        # code 404
+        if response.status == 404:
+            return result, response
 
         # 404页面对比
         # if not self.getScannerFor(path).scan(path, response):
@@ -150,6 +149,12 @@ class Fuzzer(object):
             special_response = self.requester.request(_special_path, use_base_path=False)
             if SequenceMatcher(None, response.body, special_response.body).quick_ratio() > ratio_bound:
                 return result, response
+        ## default logic
+        # if self.getScannerFor(path).scan(path, response):
+            # 文件存在性判断逻辑
+            # result = (None if response.status == 404 else response.status)
+        result = response.status
+
         return result, response
 
     def get_special_path(self, path):

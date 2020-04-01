@@ -299,8 +299,8 @@ class Requester(object):
                         headers=headers,
                         timeout=self.timeout
                     )
-
-                result = Response(response.status_code, response.reason, response.headers, response.content, )
+                # TODO: 中文解码
+                result = Response(response.status_code, response.reason, response.headers, response.content.decode(response.apparent_encoding, errors='ignore'), )
                 if fingerprint:
                     # TODO: ident fingerprints from response headers
                     self.site_fingerprint.update(result.get_suffixes(origin=self.host))
